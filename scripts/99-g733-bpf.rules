@@ -1,0 +1,1 @@
+ACTION=="add", SUBSYSTEM=="hid", ENV{HID_NAME}=="Logitech G733 Gaming Headset", RUN+="/usr/bin/systemd-run --unit=g733-bpf-loader --no-block /usr/local/bin/g733-bpf-loader.sh '%E{DEVPATH}'"
