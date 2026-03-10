@@ -44,4 +44,4 @@ sudo systemctl enable --now g733-battery-poll.service
 
 Once installed:
 - `udev` will detect the dynamically assigned `hid_id` of the headset, automatically adjust `g733_bpf.c`, recompile, and register the BPF object transparently.
-- The `g733-battery-poll` systemd background service will smartly ping the headset based on its battery state. If the battery is under 5% or over 95%, it polls every 15 seconds so you know exactly when it finishes or dies. Otherwise, it polls every 5 minutes safely in the background.
+- The `g733-battery-poll` systemd background service will smartly ping the headset based on its battery state. If the battery is under 5% AND discharging, or over 95% AND charging, it polls every 15 seconds so you know exactly when it finishes or dies. Otherwise, it polls every 5 minutes safely in the background.
