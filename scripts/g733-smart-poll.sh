@@ -3,8 +3,15 @@
 # Dynamically adjusts polling interval based on battery level.
 
 while true; do
-    # 1. Trigger the headset to reply with a battery packet
-    headsetcontrol -b >/dev/null 2>&1
+    # 1. Trigger the headset to reply with a battery packet and capture its raw terminal output
+    HC_OUT=$(headsetcontrol -b 2>&1)
+    
+    # Check if headsetcontrol reported the notorious "-24%" (meaning headset is physically OFF but charging)
+    if echo "$HC_OUT" | grep -q -- "-24%"; then
+        # Headset is off. Sleeping for 5 minutes instead of waking up the BPF interceptor.
+        sleep 300
+        continue
+    fi
     
     # 2. Give the BPF kernel program and UPower a moment to process the reply
     sleep 2

@@ -52,7 +52,13 @@ echo "$DEV_NAME" > /sys/bus/hid/drivers/hid-generic/bind
 if command -v headsetcontrol >/dev/null 2>&1; then
     echo "Waiting for headset to fully initialize..."
     sleep 3
-    headsetcontrol -b || true
+    
+    HC_OUT=$(headsetcontrol -b 2>&1)
+    if echo "$HC_OUT" | grep -q -- "-24%"; then
+        echo "Headset is physically powered off but charging. Skipping wake-up."
+    else
+        echo "Headset battery registered successfully."
+    fi
 fi
 
 echo "Done!"
