@@ -288,15 +288,16 @@ int BPF_PROG(g733_device_event, struct hid_bpf_ctx *hctx,
   // Extract raw voltage (bytes [4-5], big-endian)
   __u32 voltage = ((__u32)data[4] << 8) | ((__u32)data[5]);
 
-  // Extract charging status (byte [6]: 0x01 = idle, 0x03 = charging)
+  // Extract charging status (byte [6]: 0x01 = idle, 0x03/0x07 = charging)
   __u32 charging_raw = data[6];
-  __u32 charging = (charging_raw == 0x03U) ? 1U : 0U;
+  __u32 charging = (charging_raw == 0x03U || charging_raw == 0x07U) ? 1U : 0U;
 
   // Convert voltage to percentage
   int percentage = get_battery_percentage((int)voltage);
 
-  bpf_printk("G733 battery: voltage=%umV, charging=%u, percentage=%d%%\n",
-             voltage, charging, percentage);
+  bpf_printk(
+      "G733 battery: voltage=%umV, raw_charging=0x%02x, percentage=%d%%\n",
+      voltage, charging_raw, percentage);
 
   // Transform packet into standard Power Device report
   data[0] = 0x50U;            // Report ID: Power Device
@@ -315,7 +316,7 @@ int BPF_PROG(g733_device_event, struct hid_bpf_ctx *hctx,
  */
 SEC(".struct_ops.link")
 struct hid_bpf_ops g733_battery_ops = {
-    .hid_id = 8, // Logitech G733 wireless (add more
+    .hid_id = 9, // Logitech G733 wireless (add more
                  // variants via separate instances)
     .hid_rdesc_fixup = (void *)g733_fix_rdesc,
     .hid_device_event = (void *)g733_device_event,

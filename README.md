@@ -30,9 +30,18 @@ sudo chmod +x /usr/local/bin/g733-bpf-loader.sh
 # 2. Copy the udev rule to /etc/udev/rules.d/
 sudo cp ./scripts/99-g733-bpf.rules /etc/udev/rules.d/
 
-# 3. Reload the udev rules and trigger them
+# 3. Copy the smart background polling service to keep battery updated
+sudo cp ./scripts/g733-smart-poll.sh /usr/local/bin/
+sudo chmod +x /usr/local/bin/g733-smart-poll.sh
+sudo cp ./scripts/g733-battery-poll.service /etc/systemd/system/
+
+# 4. Reload demons and activate
 sudo udevadm control --reload-rules
 sudo udevadm trigger
+sudo systemctl daemon-reload
+sudo systemctl enable --now g733-battery-poll.service
 ```
 
-Once installed, the background script will detect the dynamically assigned `hid_id` of the headset upon connection, automatically adjust `g733_bpf.c`, recompile, and register the BPF object transparently into the kernel.
+Once installed:
+- `udev` will detect the dynamically assigned `hid_id` of the headset, automatically adjust `g733_bpf.c`, recompile, and register the BPF object transparently.
+- The `g733-battery-poll` systemd background service will smartly ping the headset based on its battery state. If the battery is under 5% or over 95%, it polls every 15 seconds so you know exactly when it finishes or dies. Otherwise, it polls every 5 minutes safely in the background.

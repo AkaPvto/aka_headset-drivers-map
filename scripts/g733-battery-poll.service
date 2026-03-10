@@ -1,0 +1,12 @@
+[Unit]
+Description=Logitech G733 Smart Battery Poller
+After=default.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/g733-smart-poll.sh
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
