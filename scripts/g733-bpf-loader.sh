@@ -32,6 +32,10 @@ cd "$PROJECT_DIR" || exit 1
 
 echo "Modifying g733_bpf.c with new HID_ID: $HID_ID"
 sed -i -E "s/\.hid_id = [0-9]+, \/\/ Logitech G733 wireless/\.hid_id = $HID_ID, \/\/ Logitech G733 wireless/" g733_bpf.c
+if ! grep -qE "\.hid_id = $HID_ID," g733_bpf.c; then
+    echo "Error: failed to patch hid_id in g733_bpf.c"
+    exit 1
+fi
 
 echo "Cleaning and recompiling..."
 make clean
@@ -39,14 +43,15 @@ make
 
 echo "Unregistering old struct_ops links..."
 bpftool struct_ops unregister name g733_battery_ops || true
-rm -rf /sys/fs/bpf/g733 /sys/fs/bpf/g733_battery_op || true
+rm -rf /sys/fs/bpf/g733 /sys/fs/bpf/g733_battery_ops || true
+mkdir -p /sys/fs/bpf/g733
 
 echo "Registering new struct_ops..."
 bpftool struct_ops register ./g733_bpf.bpf.o /sys/fs/bpf/g733 || { echo "Failed to load BPF"; exit 1; }
 
 echo "Rebinding driver..."
-echo "$DEV_NAME" > /sys/bus/hid/drivers/hid-generic/unbind
-echo "$DEV_NAME" > /sys/bus/hid/drivers/hid-generic/bind
+echo "$DEV_NAME" > /sys/bus/hid/drivers/hid-generic/unbind || echo "Warning: unbind failed (may already be unbound or on a different driver)"
+echo "$DEV_NAME" > /sys/bus/hid/drivers/hid-generic/bind || { echo "Error: bind failed for $DEV_NAME"; exit 1; }
 
 # Trigger headsetcontrol to wake up power supply
 if command -v headsetcontrol >/dev/null 2>&1; then

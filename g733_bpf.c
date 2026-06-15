@@ -102,17 +102,6 @@ extern __u8 *hid_bpf_get_data(struct hid_bpf_ctx *ctx, unsigned int offset,
 
 char __license[] SEC("license") = "GPL";
 
-/* ============================================================================
- * HID-BPF Device Configuration
- * ============================================================================
- * Device IDs for all Logitech G733 USB variants in BTF map format.
- * This tells the HID-BPF loader which devices this program applies to.
- */
-const volatile unsigned int target_hid_devices[] = {
-    (0x046d << 16) | 0x0ab5, // G733 wired variant
-    (0x046d << 16) | 0x0afe, // G733 wireless variant 1
-    (0x046d << 16) | 0x0b1f  // G733 wireless variant 2
-};
 
 /* ============================================================================
  * HID Power Device Report Descriptor
@@ -227,8 +216,11 @@ int BPF_PROG(g733_fix_rdesc, struct hid_bpf_ctx *hctx) {
   if (!data)
     return 0;
 
-  // Get current descriptor size from context
-  __u32 current_size = hctx->size;
+  // hctx->size is __s32; a negative value from a malformed descriptor would
+  // wrap to near-UINT32_MAX and bypass the bounds guard below.
+  if (hctx->size <= 0)
+    return 0;
+  __u32 current_size = (__u32)hctx->size;
 
   // Check if there's enough space to append our descriptor
   if (current_size + sizeof(hid_power_device_rdesc) > 4096)
@@ -281,8 +273,11 @@ int BPF_PROG(g733_device_event, struct hid_bpf_ctx *hctx,
   if (data[0] != 0x11U) // Not a HID++ long message
     return 0;
 
-  // Feature check: 0x08, 0x0a is battery voltage feature on G733
-  if (data[2] != 0x08U || data[3] != 0x0aU)
+  // Feature index 0x08 is the runtime-assigned battery feature on this G733.
+  // Byte [3] = (funcIndex << 4) | swId. We only check funcIndex (upper nibble)
+  // so we also capture spontaneous battery events from the firmware (swId=0x00),
+  // not just polled replies from headsetcontrol (swId=0x0a).
+  if (data[2] != 0x08U || (data[3] & 0xf0U) != 0x00U)
     return 0;
 
   // Extract raw voltage (bytes [4-5], big-endian)

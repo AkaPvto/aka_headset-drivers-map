@@ -1,6 +1,6 @@
 [Unit]
 Description=Logitech G733 Smart Battery Poller
-After=default.target
+After=multi-user.target
 
 [Service]
 Type=simple
