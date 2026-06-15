@@ -1,1 +1,4 @@
+# Build artifacts
 *.o
+*.d
+vmlinux.h
