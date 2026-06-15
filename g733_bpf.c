@@ -316,7 +316,7 @@ int BPF_PROG(g733_device_event, struct hid_bpf_ctx *hctx,
  */
 SEC(".struct_ops.link")
 struct hid_bpf_ops g733_battery_ops = {
-    .hid_id = 9, // Logitech G733 wireless (add more
+    .hid_id = 1, // Logitech G733 wireless (add more
                  // variants via separate instances)
     .hid_rdesc_fixup = (void *)g733_fix_rdesc,
     .hid_device_event = (void *)g733_device_event,
