@@ -2,3 +2,6 @@
 *.o
 *.d
 vmlinux.h
+
+# Compiled test binary
+tests/test_battery

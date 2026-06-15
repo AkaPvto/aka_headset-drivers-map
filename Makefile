@@ -2,10 +2,13 @@
 #
 # Targets:
 #   make              - Build BPF object file
+#   make install      - Install scripts, udev rule, and systemd service (requires sudo)
+#   make uninstall    - Remove all installed files (requires sudo)
+#   make test         - Run unit tests (no root or BPF hardware needed)
 #   make verify       - Check object integrity
 #   make clean        - Remove built files
 
-.PHONY: all verify clean distclean check_deps
+.PHONY: all verify clean distclean check_deps test install uninstall
 
 PROG_NAME := g733_bpf
 OUTPUT := $(PROG_NAME).bpf.o
@@ -47,9 +50,18 @@ verify: $(OUTPUT)
 	@$(LLVM_OBJDUMP) -h $(OUTPUT) | grep -E '\.text|struct_ops'
 	@$(LLVM_OBJDUMP) -d $(OUTPUT) | head -30
 
+test:
+	@bash tests/run_tests.sh
+
+install:
+	@sudo ./install.sh
+
+uninstall:
+	@sudo ./uninstall.sh
+
 clean:
 	@echo "Cleaning build artifacts..."
-	@rm -f $(OUTPUT) $(VMLINUX_H)
+	@rm -f $(OUTPUT) $(VMLINUX_H) tests/test_battery
 
 distclean: clean
 	@rm -f *.o *.a *.so

@@ -27,8 +27,14 @@ if [ -z "$HID_ID" ] || [ "$HID_ID" -eq 0 ]; then
     exit 1
 fi
 
-PROJECT_DIR="/home/akapvto/Documents/headset_drivers_map"
-cd "$PROJECT_DIR" || exit 1
+CONFIG_FILE="/etc/g733-bpf/config"
+if [ ! -f "$CONFIG_FILE" ]; then
+    echo "Error: $CONFIG_FILE not found — run 'sudo make install' first"
+    exit 1
+fi
+# shellcheck source=/dev/null
+source "$CONFIG_FILE"
+cd "$PROJECT_DIR" || { echo "Error: PROJECT_DIR='$PROJECT_DIR' not accessible"; exit 1; }
 
 echo "Modifying g733_bpf.c with new HID_ID: $HID_ID"
 sed -i -E "s/\.hid_id = [0-9]+, \/\/ Logitech G733 wireless/\.hid_id = $HID_ID, \/\/ Logitech G733 wireless/" g733_bpf.c
