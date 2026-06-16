@@ -46,5 +46,16 @@ systemctl daemon-reload
 systemctl enable --now g733-battery-poll.service
 ok "Services reloaded and enabled"
 
+# If the G733 dongle is already connected, trigger the loader now.
+# udevadm trigger only fires 'change' events, not 'add', so the udev rule
+# won't fire for already-present devices. We detect and activate immediately.
+G733_UEVENT=$(grep -rl "HID_NAME=Logitech G733 Gaming Headset" /sys/bus/hid/devices/*/uevent 2>/dev/null | head -1)
+if [ -n "$G733_UEVENT" ]; then
+    G733_DEVPATH=$(readlink -f "$(dirname "$G733_UEVENT")" | sed 's|/sys||')
+    echo "G733 already connected — activating BPF loader now..."
+    /usr/local/bin/g733-bpf-loader.sh "$G733_DEVPATH" &
+    ok "BPF loader triggered (running in background, check /var/log/g733-bpf-loader.log)"
+fi
+
 echo ""
-echo -e "${BOLD}Done!${NC} Plug in your G733 headset to activate battery reporting."
+echo -e "${BOLD}Done!${NC} G733 battery reporting will activate on next dongle connection."

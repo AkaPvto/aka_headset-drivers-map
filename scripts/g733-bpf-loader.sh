@@ -13,20 +13,6 @@ exec >> "$LOG_FILE" 2>&1
 echo "=== $(date) ==="
 echo "Triggered for DEVPATH: $1"
 
-# Extract the sysfs ID (the last part of the path after the dot)
-# e.g., 0003:046D:0B1F.0004 -> 0004, which is in hexadecimal
-DEV_NAME=$(basename "$1")
-HID_HEX=$(echo "$DEV_NAME" | cut -d'.' -f2)
-
-# Hex to decimal conversion
-HID_ID=$((16#$HID_HEX))
-echo "Parsed HID_ID: $HID_ID"
-
-if [ -z "$HID_ID" ] || [ "$HID_ID" -eq 0 ]; then
-    echo "Error: Invalid HID_ID parsed."
-    exit 1
-fi
-
 CONFIG_FILE="/etc/g733-bpf/config"
 if [ ! -f "$CONFIG_FILE" ]; then
     echo "Error: $CONFIG_FILE not found — run 'sudo make install' first"
@@ -36,7 +22,34 @@ fi
 source "$CONFIG_FILE"
 cd "$PROJECT_DIR" || { echo "Error: PROJECT_DIR='$PROJECT_DIR' not accessible"; exit 1; }
 
-echo "Modifying g733_bpf.c with new HID_ID: $HID_ID"
+# Unregister any existing struct_ops FIRST, before we compile.
+# This may trigger a HID re-enumeration (device gets a new sysfs ID),
+# so we must detect the live device ID *after* this step.
+echo "Unregistering old struct_ops links..."
+bpftool struct_ops unregister name g733_battery_ops 2>/dev/null || true
+rm -rf /sys/fs/bpf/g733 /sys/fs/bpf/g733_battery_ops 2>/dev/null || true
+
+# Give the kernel a moment to finish re-enumerating if it needs to
+sleep 1
+
+# Detect the live device ID now that any re-enumeration has settled
+LIVE_DEV_PATH=$(grep -rl "HID_NAME=Logitech G733 Gaming Headset" /sys/bus/hid/devices/*/uevent 2>/dev/null \
+    | head -1 | xargs dirname 2>/dev/null)
+if [ -z "$LIVE_DEV_PATH" ]; then
+    echo "Error: G733 not found in sysfs after unregister step"
+    exit 1
+fi
+DEV_NAME=$(basename "$LIVE_DEV_PATH")
+HID_HEX=$(echo "$DEV_NAME" | cut -d'.' -f2)
+HID_ID=$((16#$HID_HEX))
+echo "Live device: $DEV_NAME → HID_ID: $HID_ID"
+
+if [ -z "$HID_ID" ] || [ "$HID_ID" -eq 0 ]; then
+    echo "Error: Invalid HID_ID detected."
+    exit 1
+fi
+
+echo "Patching g733_bpf.c with HID_ID: $HID_ID"
 sed -i -E "s/\.hid_id = [0-9]+, \/\/ Logitech G733 wireless/\.hid_id = $HID_ID, \/\/ Logitech G733 wireless/" g733_bpf.c
 if ! grep -qE "\.hid_id = $HID_ID," g733_bpf.c; then
     echo "Error: failed to patch hid_id in g733_bpf.c"
@@ -47,9 +60,6 @@ echo "Cleaning and recompiling..."
 make clean
 make
 
-echo "Unregistering old struct_ops links..."
-bpftool struct_ops unregister name g733_battery_ops || true
-rm -rf /sys/fs/bpf/g733 /sys/fs/bpf/g733_battery_ops || true
 mkdir -p /sys/fs/bpf/g733
 
 echo "Registering new struct_ops..."
